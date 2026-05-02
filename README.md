@@ -74,6 +74,15 @@ price_comparison_agent/
 
 ---
 
+GitHub repo (source)
+    │
+    ├─► Hugging Face Spaces (Docker)  ← FastAPI + LangGraph + Playwright
+    │       └── uses Upstash Redis for caching
+    │
+    └─► Streamlit Community Cloud     ← UI
+            └── calls Hugging Face API
+
+
 ## Quick Start
 
 ### 1. Clone and set up
