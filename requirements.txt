@@ -1,0 +1,63 @@
+# ============================================================
+# requirements.txt — Production dependencies
+# Price Comparison Agent — Zepto + Blinkit
+# Python >= 3.11
+# ============================================================
+
+# ── LangGraph / LangChain ────────────────────────────────────
+langgraph>=0.2.28
+langchain>=0.2.16
+langchain-core>=0.2.38
+langchain-groq>=0.1.9            # Groq LLM (free tier, fast)
+langsmith>=0.1.117               # tracing (optional but recommended)
+
+# ── API framework ────────────────────────────────────────────
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0        # includes uvloop + httptools
+python-multipart>=0.0.9
+
+# ── Async HTTP ───────────────────────────────────────────────
+httpx[http2]>=0.27.0
+tenacity>=8.3.0                  # retry with exponential backoff
+
+# ── Playwright (Zepto + Blinkit scraping) ────────────────────
+playwright>=1.44.0               # after install: playwright install chromium
+
+# ── Caching ──────────────────────────────────────────────────
+redis[hiredis]>=5.0.4            # async Redis + C-level parser
+
+# ── Data validation ──────────────────────────────────────────
+pydantic>=2.7.4
+pydantic-settings>=2.3.4
+
+# ── Observability ────────────────────────────────────────────
+prometheus-client>=0.20.0
+sentry-sdk[fastapi]>=2.7.0       # optional — remove if not using Sentry
+structlog>=24.2.0                # structured JSON logging
+
+# ── UI ───────────────────────────────────────────────────────
+streamlit>=1.35.0
+
+# ── Utilities ────────────────────────────────────────────────
+python-dotenv>=1.0.1             # load .env automatically
+
+
+# ============================================================
+# Dev / test dependencies (install separately)
+# pip install pytest pytest-asyncio pytest-mock pytest-cov
+#             "fakeredis[aioredis]" respx
+# ============================================================
+
+# ── Install commands ─────────────────────────────────────────
+#
+# 1. Create venv and install:
+#    python3 -m venv .venv && source .venv/bin/activate
+#    pip install -r requirements.txt
+#
+# 2. Install Playwright Chromium (one-time):
+#    playwright install chromium
+#    playwright install-deps chromium
+#
+# 3. Install test deps:
+#    pip install pytest pytest-asyncio pytest-mock pytest-cov \
+#                "fakeredis[aioredis]" respx

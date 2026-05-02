@@ -1,0 +1,86 @@
+version: "3.9"
+
+# ============================================================
+# docker-compose.yml — Price Comparison Agent (Zepto + Blinkit)
+#
+# Quick start:
+#   cp .env.example .env    # add your GROQ_API_KEY
+#   docker compose up -d
+# ============================================================
+
+services:
+
+  agent:
+    build: .
+    image: price-comparison-agent:latest
+    ports:
+      - "8001:8001"
+    environment:
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      REDIS_URL: redis://redis:6379/0
+      LANGCHAIN_TRACING_V2: ${LANGCHAIN_TRACING_V2:-false}
+      LANGCHAIN_API_KEY: ${LANGCHAIN_API_KEY:-}
+      LANGCHAIN_PROJECT: ${LANGCHAIN_PROJECT:-price-comparison-agent}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      ZEPTO_RATE_LIMIT: ${ZEPTO_RATE_LIMIT:-10}
+      BLINKIT_RATE_LIMIT: ${BLINKIT_RATE_LIMIT:-10}
+      PORT: 8001
+      WORKERS: 2
+      PYTHONPATH: /app
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  streamlit:
+    build: .
+    image: price-comparison-agent:latest
+    command: ["streamlit", "run", "streamlit_app.py",
+              "--server.port=8501", "--server.address=0.0.0.0",
+              "--server.headless=true"]
+    ports:
+      - "8501:8501"
+    environment:
+      PYTHONPATH: /app
+    depends_on:
+      - agent
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: >
+      redis-server
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1
+      --loglevel warning
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - agent
+    restart: unless-stopped
+
+volumes:
+  redis_data:

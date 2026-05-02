@@ -1,0 +1,68 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "price-comparison-agent"
+version = "2.0.0"
+description = "LangGraph agentic price comparison across Zepto and Blinkit"
+requires-python = ">=3.11"
+readme = "README.md"
+
+dependencies = [
+    "langgraph>=0.2.28",
+    "langchain>=0.2.16",
+    "langchain-core>=0.2.38",
+    "langchain-groq>=0.1.9",
+    "langsmith>=0.1.117",
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.29.0",
+    "python-multipart>=0.0.9",
+    "httpx[http2]>=0.27.0",
+    "tenacity>=8.3.0",
+    "playwright>=1.44.0",
+    "redis[hiredis]>=5.0.4",
+    "pydantic>=2.7.4",
+    "pydantic-settings>=2.3.4",
+    "prometheus-client>=0.20.0",
+    "sentry-sdk[fastapi]>=2.7.0",
+    "structlog>=24.2.0",
+    "streamlit>=1.35.0",
+    "python-dotenv>=1.0.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.2",
+    "pytest-asyncio>=0.23.7",
+    "pytest-mock>=3.14.0",
+    "pytest-cov>=5.0.0",
+    "pytest-timeout>=2.3.1",
+    "fakeredis[aioredis]>=2.23.2",
+    "respx>=0.21.1",
+    "ruff>=0.5.0",
+    "mypy>=1.10.0",
+    "pre-commit>=3.7.1",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+timeout = 60
+addopts = "--tb=short -q"
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 70
