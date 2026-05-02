@@ -1,37 +1,17 @@
-# ============================================================
-# Dockerfile — Price Comparison Agent (Zepto + Blinkit)
-# Multi-stage build for lean production image
-# ============================================================
+FROM mcr.microsoft.com/playwright/python:v1.44.0-jammy
 
-# ── Stage 1: dependency builder ───────────────────────────────
-FROM python:3.11-slim AS builder
+WORKDIR /app
 
-WORKDIR /build
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libffi-dev libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
-
+# Install Python deps
 COPY requirements.txt .
-RUN pip install --upgrade pip && \
-    pip install --prefix=/install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
+# Install Chromium for Playwright
+RUN playwright install chromium && \
+    playwright install-deps chromium
 
-# ── Stage 2: Playwright browser install ───────────────────────
-FROM mcr.microsoft.com/playwright/python:v1.44.0-jammy AS playwright-base
-
-WORKDIR /app
-COPY --from=builder /install /usr/local
-RUN playwright install chromium && playwright install-deps chromium
-
-
-# ── Stage 3: production runtime ───────────────────────────────
-FROM playwright-base AS production
-
-WORKDIR /app
-
-RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
-
+# Copy source
 COPY src/ ./src/
 COPY streamlit_app.py .
 
@@ -39,12 +19,11 @@ ENV PYTHONPATH=/app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-USER appuser
-EXPOSE 8001 8501
+# Hugging Face uses port 7860
+EXPOSE 7860
 
 CMD ["uvicorn", "src.api.main:app", \
      "--host", "0.0.0.0", \
-     "--port", "8001", \
-     "--workers", "2", \
-     "--loop", "uvloop", \
-     "--no-access-log"]
+     "--port", "7860", \
+     "--workers", "1", \
+     "--loop", "uvloop"]
