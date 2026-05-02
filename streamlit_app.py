@@ -54,7 +54,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-API_URL = "http://localhost:8001/compare"
+API_URL = "https://aman16072002-price-comparison-agent.hf.space/compare"
 PINCODE_CITIES = {
     "560001": "Bengaluru", "400001": "Mumbai", "110001": "Delhi",
     "600001": "Chennai",   "500001": "Hyderabad","700001": "Kolkata",
