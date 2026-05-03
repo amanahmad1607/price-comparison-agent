@@ -15,11 +15,9 @@ st.markdown("""
 [data-testid="stHeader"] { background: transparent; }
 .block-container { padding-top: 2rem; padding-bottom: 2rem; max-width: 1100px; }
 #MainMenu, footer, header { visibility: hidden; }
-
 .app-header { background:white; border-radius:16px; padding:28px 32px; margin-bottom:24px; border:1px solid #e8e6df; }
 .app-title  { font-size:28px; font-weight:600; color:#1a1a18; margin-bottom:4px; }
 .app-sub    { font-size:15px; color:#6b6a64; }
-
 .platform-card        { background:white; border-radius:14px; padding:20px; border:1.5px solid #e8e6df; }
 .platform-card.winner { border-color:#1D9E75; background:#f0fdf8; }
 .plat-label  { font-size:11px; font-weight:700; letter-spacing:.06em; color:#888780; text-transform:uppercase; margin-bottom:10px; }
@@ -27,37 +25,35 @@ st.markdown("""
 .ppu         { font-size:12px; color:#888780; margin-bottom:12px; }
 .prod-name   { font-size:13px; color:#444441; line-height:1.5; margin-bottom:10px; }
 .delivery    { font-size:12px; color:#6b6a64; margin-top:6px; }
-
 .badge              { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; margin-bottom:8px; }
 .badge-cheapest     { background:#E1F5EE; color:#085041; }
 .badge-fastest      { background:#EEEDFE; color:#3C3489; }
 .badge-value        { background:#FAEEDA; color:#633806; }
-
 .summary-bar  { background:white; border-radius:12px; padding:16px 20px; border:1px solid #e8e6df; margin-bottom:20px; }
 .summary-item { display:inline-block; font-size:13px; color:#6b6a64; margin-right:28px; }
 .summary-item strong { color:#1a1a18; font-weight:500; }
-
 .meta-tag   { display:inline-block; padding:3px 10px; border-radius:20px; font-size:12px; font-weight:500; margin-right:6px; }
 .meta-cache { background:#EEEDFE; color:#3C3489; }
 .meta-miss  { background:#F1EFE8; color:#5F5E5A; }
 .meta-time  { background:#F1EFE8; color:#5F5E5A; }
-
 .stTextInput input { border-radius:10px !important; border:1.5px solid #d3d1c7 !important; font-size:15px !important; }
 .stButton button { background:#534AB7 !important; color:white !important; border-radius:10px !important; border:none !important; font-size:15px !important; font-weight:500 !important; width:100% !important; }
 .stButton button:hover { background:#3C3489 !important; }
 [data-testid="stLinkButton"] a { background:transparent !important; color:#534AB7 !important; border:1.5px solid #534AB7 !important; border-radius:8px !important; font-size:13px !important; font-weight:500 !important; padding:6px 12px !important; text-decoration:none !important; display:block !important; text-align:center !important; margin-top:8px !important; }
 [data-testid="stLinkButton"] a:hover { background:#EEEDFE !important; }
-
 .plat-pill-zepto   { background:#E8F4FD; color:#185FA5; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; }
 .plat-pill-blinkit { background:#FFF3E0; color:#E65100; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:600; }
 .empty-card { background:white; border-radius:12px; padding:24px; border:1px solid #e8e6df; text-align:center; }
 </style>
 """, unsafe_allow_html=True)
 
+# ── Config ─────────────────────────────────────────────────────────────────────
 API_URL = "https://aman16072002-price-comparison-agent.hf.space/compare"
+TIMEOUT = 90   # HF Space can take up to 30s to wake + 15s to scrape
+
 PINCODE_CITIES = {
     "560001": "Bengaluru", "400001": "Mumbai", "110001": "Delhi",
-    "600001": "Chennai",   "500001": "Hyderabad","700001": "Kolkata",
+    "600001": "Chennai",   "500001": "Hyderabad", "700001": "Kolkata",
     "411001": "Pune",      "380001": "Ahmedabad",
 }
 EMOJIS = {"zepto": "⚡", "blinkit": "🟠"}
@@ -66,6 +62,36 @@ BADGE_MAP = {
     "Fastest delivery": '<span class="badge badge-fastest">Fastest delivery</span><br>',
     "Best value":       '<span class="badge badge-value">Best value</span><br>',
 }
+
+
+def call_api(query: str, pincode: str, platforms: list) -> dict | None:
+    """Call the Hugging Face API with proper error handling."""
+    try:
+        resp = requests.post(
+            API_URL,
+            json={"query": query, "pincode": pincode or None, "platforms": platforms},
+            timeout=TIMEOUT,
+        )
+        if resp.status_code == 200:
+            return resp.json()
+        st.error(f"API error {resp.status_code}: {resp.text[:200]}")
+        return None
+    except requests.exceptions.Timeout:
+        st.error(
+            "⏱️ Request timed out. The Hugging Face Space may be waking up — "
+            "please wait 30 seconds and try again."
+        )
+        return None
+    except requests.exceptions.ConnectionError:
+        st.error(
+            "❌ Cannot connect to the API at Hugging Face. "
+            "Check: https://huggingface.co/spaces/aman16072002/price-comparison-agent"
+        )
+        return None
+    except Exception as e:
+        st.error(f"Unexpected error: {e}")
+        return None
+
 
 # ── Header ─────────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -89,11 +115,13 @@ with c4:
 if pincode in PINCODE_CITIES:
     st.caption(f"📍 {PINCODE_CITIES[pincode]}")
 
+# Session state
 if "history" not in st.session_state:
     st.session_state.history = []
 if "result" not in st.session_state:
     st.session_state.result = None
 
+# Recent searches
 if st.session_state.history:
     st.markdown("**Recent:**")
     rcols = st.columns(min(len(st.session_state.history), 6))
@@ -103,33 +131,23 @@ if st.session_state.history:
                 query = h
                 go = True
 
+# Platform filter
+plat_filter = [] if plat_sel == "Both platforms" else [plat_sel]
+
 # ── API call ──────────────────────────────────────────────────────────────────
 if go and query.strip():
     if query not in st.session_state.history:
         st.session_state.history.append(query)
-    with st.spinner("Searching Zepto and Blinkit..."):
-        try:
-            plat_filter = [] if plat_sel == "Both platforms" else [plat_sel]
-            resp = requests.post(API_URL, json={
-                "query": query.strip(),
-                "pincode": pincode or None,
-                "platforms": plat_filter,
-            }, timeout=60)
-            st.session_state.result = resp.json() if resp.status_code == 200 else None
-            if resp.status_code != 200:
-                st.error(f"API error {resp.status_code}")
-        except requests.ConnectionError:
-            st.error("Cannot connect to agent. Start it first:")
-            st.code("PYTHONPATH=. uvicorn src.api.main:app --reload --port 8001")
-            st.session_state.result = None
+    with st.spinner("Searching Zepto and Blinkit... (first request may take ~30s)"):
+        st.session_state.result = call_api(query.strip(), pincode, plat_filter)
 
-# ── Results ────────────────────────────────────────────────────────────────────
+# ── Results ───────────────────────────────────────────────────────────────────
 result = st.session_state.result
 if result:
-    comp      = result.get("comparison")
-    cache_hit = result.get("cache_hit", False)
-    duration  = result.get("duration_ms", 0)
-    error     = result.get("error")
+    comp       = result.get("comparison")
+    cache_hit  = result.get("cache_hit", False)
+    duration   = result.get("duration_ms", 0)
+    error      = result.get("error")
     plats_srch = result.get("platforms_searched", [])
     plats_fail = result.get("platforms_failed", [])
 
@@ -176,23 +194,18 @@ if result:
                 disc      = s.get("discount_pct", 0)
 
                 badge_html = BADGE_MAP.get(s.get("badge", ""), "")
-                if disc > 0 and mrp > price:
-                    mrp_html = (
-                        f'<span style="font-size:12px;color:#b4b2a9;text-decoration:line-through">&#8377;{mrp:.0f}</span> '
-                        f'<span style="font-size:12px;color:#0F6E56;font-weight:500">{disc:.0f}% off</span><br>'
-                    )
-                else:
-                    mrp_html = ""
+                mrp_html = (
+                    f'<span style="font-size:12px;color:#b4b2a9;text-decoration:line-through">&#8377;{mrp:.0f}</span> '
+                    f'<span style="font-size:12px;color:#0F6E56;font-weight:500">{disc:.0f}% off</span><br>'
+                ) if disc > 0 and mrp > price else ""
 
                 ppu       = html.escape(s.get("price_per_unit_label", ""))
                 prod_name = html.escape(s.get("best_product_name", ""))
                 if len(prod_name) > 70:
                     prod_name = prod_name[:70] + "..."
                 safe_url  = html.escape(s.get("best_product_url", "#"), quote=True)
-
-                deliv = s.get("delivery_time_min")
+                deliv     = s.get("delivery_time_min")
                 deliv_html = f'<div class="delivery">🕐 {deliv} min delivery</div>' if deliv else ""
-
                 card_class = "platform-card winner" if is_winner else "platform-card"
 
                 with cols[i]:
@@ -212,7 +225,11 @@ if result:
                         st.link_button("View product →", safe_url, use_container_width=True)
 
         if plats_fail:
-            st.markdown(f'<div style="margin-top:12px;font-size:12px;color:#A32D2D">⚠️ No results from: {", ".join(p.capitalize() for p in plats_fail)}</div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div style="margin-top:12px;font-size:12px;color:#A32D2D">'
+                f'⚠️ No results from: {", ".join(p.capitalize() for p in plats_fail)}</div>',
+                unsafe_allow_html=True,
+            )
 
         all_prods = comp.get("all_products", [])
         if all_prods:
@@ -224,8 +241,8 @@ if result:
                     col.markdown(lbl)
                 st.divider()
                 for p in sorted_prods:
-                    rc   = st.columns([3.5, 1.5, 1, 1, 1.5])
-                    name = html.escape(p["name"][:55] + ("..." if len(p["name"]) > 55 else ""))
+                    rc    = st.columns([3.5, 1.5, 1, 1, 1.5])
+                    name  = html.escape(p["name"][:55] + ("..." if len(p["name"]) > 55 else ""))
                     brand = html.escape(p.get("brand") or "")
                     plat  = p["platform"]
                     ppu_t = html.escape(p.get("price_per_unit_label", ""))
@@ -239,13 +256,13 @@ if result:
         gat = comp.get("generated_at", "")
         if ck:
             try:
-                dt  = datetime.fromisoformat(gat.replace("Z", "+00:00"))
-                fmt = dt.strftime("%d %b %Y, %H:%M UTC")
+                fmt = datetime.fromisoformat(gat.replace("Z", "+00:00")).strftime("%d %b %Y, %H:%M UTC")
             except Exception:
                 fmt = gat
             st.markdown(f'<div style="margin-top:16px;font-size:11px;color:#b4b2a9">Data: {fmt} · Cache key: {ck}</div>', unsafe_allow_html=True)
 
 else:
+    # Empty state
     st.markdown("<br>", unsafe_allow_html=True)
     ec1, ec2, ec3 = st.columns(3)
     for col, icon, title, desc in [
@@ -254,36 +271,32 @@ else:
         (ec3, "🏷️", "Price-per-unit",   "True value comparison across different pack sizes"),
     ]:
         with col:
-            st.markdown(f'<div class="empty-card"><div style="font-size:28px;margin-bottom:8px">{icon}</div><div style="font-weight:500;margin-bottom:4px;color:#1a1a18">{title}</div><div style="font-size:13px;color:#6b6a64">{desc}</div></div>', unsafe_allow_html=True)
+            st.markdown(
+                f'<div class="empty-card">'
+                f'<div style="font-size:28px;margin-bottom:8px">{icon}</div>'
+                f'<div style="font-weight:500;margin-bottom:4px;color:#1a1a18">{title}</div>'
+                f'<div style="font-size:13px;color:#6b6a64">{desc}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
     st.markdown("<br>**Try these:**", unsafe_allow_html=True)
-    examples = ["Maggi masala noodles 70g", "Amul toned milk 500ml", "Lay's Classic chips",
-                "Parle-G biscuits 800g", "Tata Salt 1kg", "Britannia bread"]
+    examples = [
+        "Maggi masala noodles 70g", "Amul toned milk 500ml", "Lay's Classic chips",
+        "Parle-G biscuits 800g",    "Tata Salt 1kg",         "Britannia bread",
+    ]
     ecols = st.columns(3)
     for i, ex in enumerate(examples):
         with ecols[i % 3]:
             if st.button(ex, key=f"ex{i}"):
                 st.session_state["_eq"] = ex
                 st.rerun()
-if plat_sel == "Both platforms":
-    platforms = ["zepto", "blinkit"]
-else:
-    platforms = [plat_sel]
+
+# Handle example query clicks
 if "_eq" in st.session_state:
     eq = st.session_state.pop("_eq")
     if eq not in st.session_state.history:
         st.session_state.history.append(eq)
-    try:
-        resp = requests.post(
-    API_URL,
-    json={
-        "query": eq,
-        "pincode": "560001",
-        "platforms": platforms
-    },
-    timeout=60
-)
-        st.session_state.result = resp.json() if resp.status_code == 200 else None
-    except Exception:
-        pass
+    with st.spinner("Searching... (first request may take ~30s)"):
+        st.session_state.result = call_api(eq, "560001", [])
     st.rerun()
