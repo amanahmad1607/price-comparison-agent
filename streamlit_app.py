@@ -265,13 +265,24 @@ else:
             if st.button(ex, key=f"ex{i}"):
                 st.session_state["_eq"] = ex
                 st.rerun()
-
+if plat_sel == "Both platforms":
+    platforms = ["zepto", "blinkit"]
+else:
+    platforms = [plat_sel]
 if "_eq" in st.session_state:
     eq = st.session_state.pop("_eq")
     if eq not in st.session_state.history:
         st.session_state.history.append(eq)
     try:
-        resp = requests.post(API_URL, json={"query": eq, "pincode": "560001", "platforms": []}, timeout=60)
+        resp = requests.post(
+    API_URL,
+    json={
+        "query": eq,
+        "pincode": "560001",
+        "platforms": platforms
+    },
+    timeout=60
+)
         st.session_state.result = resp.json() if resp.status_code == 200 else None
     except Exception:
         pass
