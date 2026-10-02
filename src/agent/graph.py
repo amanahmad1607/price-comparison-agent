@@ -91,7 +91,7 @@ def build_graph(checkpointer=None):
 def create_agent():
     """Singleton factory — called once at FastAPI startup."""
     llm = ChatGroq(
-        model="llama-3.1-8b-instant",
+        model = "openai/gpt-oss-20b",
         temperature=0,
         api_key=os.environ["GROQ_API_KEY"],
     )
